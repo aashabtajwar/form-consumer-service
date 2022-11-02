@@ -39,23 +39,31 @@ class UpdateSheet:
             request = sheet.values().append(spreadsheetId=form_link, range=range, valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS", body={"values":data}).execute()
             # data upload successful
             logging.info('Uploaded Data to Google Sheets')
-            return (request)
+            print(request)
         except HttpError as err:
             # if fails because of request limitation, store the data in redis
             # and start the backoff on a thread
             
             # log -> quota limit reached, resolving with exponential backoff
+            warning = ''
             if (err.status_code == 429):
                 logging.warning('Google Sheets Quota Limit Reached. Trying to Resolve with Exponential Backoff')
                 cache_data = {
                     'link': form_link,
                     'data': data
                 }
-                self.backoff(data, creds, form_link, sheet_name, 60, err)
+                r.set(form_id, str(cache_data))
+                self.backoff(data, creds, form_link, form_id, sheet_name, 60, err)
                 print(err)
             
+            else:
+                # if an error occurs other than the one caused by Quota Limit
+                # then log the error proceed to run the method again
+                logging.warning(f'Error \n: {err}\nProceeding the to run the method again')
+                self.upload_data(data, form_id, form_link, sheet_name)
+                # otherwise,response may get lost
 
-    def backoff(self, data, creds, form_link, sheet_name, wait_time, err):
+    def backoff(self, data, creds, form_link, form_id,sheet_name, wait_time, err):
         error = err 
         
         # setting wait time for 60 seconds
@@ -71,6 +79,10 @@ class UpdateSheet:
                 service = build('sheets', 'v4', credentials=creds)
                 sheet = service.spreadsheets()
                 request = sheet.values().append(spreadsheetId=form_link, range=range, valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS", body={"values":data}).execute()
+                # the data is successfully uploaded to sheets
+                # remove the this data from the cache
+                r.delete(form_id)
+                
                 # log -> data upload successful
                 logging.info('Data successfully uploaded after recovering from quota limit.')
                 return request 
