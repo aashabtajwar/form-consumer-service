@@ -2,6 +2,12 @@ import queue
 import pika 
 
 
+def callback(ch, method, properties, body):
+    # consume the data
+    # upload data to sheets
+    print(body)
+
+
 def main():
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
