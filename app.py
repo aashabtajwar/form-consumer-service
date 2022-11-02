@@ -9,6 +9,7 @@ def callback(ch, method, properties, body):
     # upload data to sheets
     # the data should be in the form [['a', 'b', 'c' ]]
     print(body)
+    # log -> dequeued data, now processing for upload
     data = json.loads(body)
     form_id = data['form_id']
     form_link = data['link']

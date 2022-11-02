@@ -13,7 +13,10 @@ from googleapiclient.errors import HttpError
 
 from google.oauth2 import service_account
 
-\
+
+from extension import logging
+
+
 r = redis.Redis(host='localhost', port=6379)
 
 class UpdateSheet:
@@ -24,8 +27,6 @@ class UpdateSheet:
 
         range = sheet_name + "!A2"
 
-
-        # SCOPES = ['https://www.googleapis.com/auth/sqlservice.admin']
         SERVICE_ACCOUNT_FILE = 'keys.json'
 
         creds = None
@@ -36,16 +37,22 @@ class UpdateSheet:
             service = build('sheets', 'v4', credentials=creds)
             sheet = service.spreadsheets()
             request = sheet.values().append(spreadsheetId=form_link, range=range, valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS", body={"values":data}).execute()
+            # data upload successful
+            logging.info('Uploaded Data to Google Sheets')
             return (request)
         except HttpError as err:
             # if fails because of request limitation, store the data in redis
             # and start the backoff on a thread
-            cache_data = {
-                'link': form_link,
-                'data': data
-            }
-            self.backoff(data, creds, form_link, sheet_name, 60, err)
-            print(err)
+            
+            # log -> quota limit reached, resolving with exponential backoff
+            if (err.status_code == 429):
+                logging.warning('Google Sheets Quota Limit Reached. Trying to Resolve with Exponential Backoff')
+                cache_data = {
+                    'link': form_link,
+                    'data': data
+                }
+                self.backoff(data, creds, form_link, sheet_name, 60, err)
+                print(err)
             
 
     def backoff(self, data, creds, form_link, sheet_name, wait_time, err):
@@ -59,14 +66,17 @@ class UpdateSheet:
             try:
                 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
                 range = sheet_name + "!A2"
-                # SCOPES = ['https://www.googleapis.com/auth/sqlservice.admin']
                 SERVICE_ACCOUNT_FILE = 'keys.json'
 
                 service = build('sheets', 'v4', credentials=creds)
                 sheet = service.spreadsheets()
                 request = sheet.values().append(spreadsheetId=form_link, range=range, valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS", body={"values":data}).execute()
+                # log -> data upload successful
+                logging.info('Data successfully uploaded after recovering from quota limit.')
                 return request 
             except HttpError as err:
+                # log -> failed, quota block has not been lifted yet, proceeding to wait and try again
+                logging.warning('Upload failed. Quota Block has been not lifted yet. Proceding to wait and try again')
                 if (err.status_code == 429):
                     wait_time += 10
                 
