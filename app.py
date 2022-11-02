@@ -17,7 +17,6 @@ def callback(ch, method, properties, body):
     update_sheet.upload_data(data['data'], form_id, form_link, sheet_name)
     # print(data)
 
-
 def main():
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
@@ -29,3 +28,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# note : 
+# Works with server!
