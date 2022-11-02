@@ -3,8 +3,10 @@ import pika
 import json
 
 from sheets import UpdateSheet
+from extension import logging
 
 def callback(ch, method, properties, body):
+    logging.info('Dequeued data from queue')
     # consume the data
     # upload data to sheets
     # the data should be in the form [['a', 'b', 'c' ]]
