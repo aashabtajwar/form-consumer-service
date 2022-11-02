@@ -1,11 +1,21 @@
 import queue
 import pika 
+import json
 
+from sheets import UpdateSheet
 
 def callback(ch, method, properties, body):
     # consume the data
     # upload data to sheets
+    # the data should be in the form [['a', 'b', 'c' ]]
     print(body)
+    data = json.loads(body)
+    form_id = data['form_id']
+    form_link = data['link']
+    sheet_name = data['sheet_name']
+    update_sheet = UpdateSheet()
+    update_sheet.upload_data(data['data'], form_id, form_link, sheet_name)
+    # print(data)
 
 
 def main():
